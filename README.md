@@ -269,10 +269,10 @@ dev.off()
 
 
 -----
-<div id='id-section3'/>
+<div id='id-section2'/>
 
 
-## Chapter 3: WGS qualification (variant calling-2a)
+## Chapter 2: WGS qualification (variant calling-2a)
 
 ![image](WGS_qual_valid.png)
 
