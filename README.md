@@ -107,6 +107,21 @@ to kill the job---
 ```
 docker container rm -f 98b136db5ae0
 ```
+
+**navigate strelka2 results**
+
+```
+root@ip-10-180-11-166:/data/home/aayudh-das/sop_test/results/variants# ll
+total 30708
+drwxr-xr-x 2 root root     4096 Mar  5 19:27 ./
+drwxr-xr-x 4 root root     4096 Mar  5 18:51 ../
+-rw-r--r-- 1 root root  5225243 Mar  5 19:27 somatic.indels.vcf.gz
+-rw-r--r-- 1 root root   703508 Mar  5 19:27 somatic.indels.vcf.gz.tbi
+-rw-r--r-- 1 root root 24001021 Mar  5 19:27 somatic.snvs.vcf.gz
+-rw-r--r-- 1 root root  1501690 Mar  5 19:27 somatic.snvs.vcf.gz.tbi
+root@ip-10-180-11-166:/data/home/aayudh-das/sop_test/results/variants#
+```
+
 ### E) snpEff
 
 snpEff: A tool used for annotating variants in VCF files and predicting their effects on genes (e.g., nonsynonymous coding changes, synonymous changes). It uses a database of genomic information to interpret the variants found in a VCF file based on the reference genome specified.
