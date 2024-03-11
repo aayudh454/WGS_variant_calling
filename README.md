@@ -2,7 +2,7 @@
 
 * [Page 1: 2023-30-11](#id-section1). Chapter 1: WGS variant calling pipeline (Fastp, bwa & strelka2)
 
-* [Page 2: 2024-15-01](#id-section3). Chapter 2: WGS variant calling qualification
+* [Page 2: 2024-15-01](#id-section2). Chapter 2: WGS variant calling qualification
 
 -----
 <div id='id-section1'/>
