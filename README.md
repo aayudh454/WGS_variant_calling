@@ -265,3 +265,302 @@ ggplot(filtered_data, aes(x = gene, y = frequency_of_alt, fill = gene)) +
 dev.off()
 ```
 ![image](GEB0017_571_SNPs_barplot.png)
+
+
+
+-----
+<div id='id-section3'/>
+
+
+## Chapter 3: WGS qualification (variant calling-2a)
+
+![image](WGS_qual_valid.png)
+
+#### Samples-
+**IGSR columnbian** - https://www.internationalgenome.org/data-portal/sample/HG01148
+**IGSR limaperu** - https://www.internationalgenome.org/data-portal/sample/HG01953 
+
+### Process IGSR variant lists 
+
+1. Choose american ancestry based datasets from IGSR- https://www.internationalgenome.org/data-portal/sample/HG01148. Now extract the variants to servers for all 22 chromosomes. Now find out which column has the exact genotype. So, run this script **find_colno.sh** -
+
+```
+#!/bin/bash
+  
+# Define the file name
+fileName="HG01148_Colombian_chr1.vcf.gz"
+
+# Use zgrep to find the header line (which starts with #CHROM), then use awk to search for the specific column
+columnNumber=$(zgrep -m1 "^#CHROM" $fileName | awk '{for(i=1;i<=NF;i++) if($i=="HG01953") print i}')
+
+# Check if the column number was found and print the result
+if [ -z "$columnNumber" ]; then
+  echo "Header HG01953 not found."
+else
+  echo "Header HG01953 is in column number: $columnNumber"
+fi
+```
+2. Now extract the CHROM, POS, ID, REF, ALT, Genotype_HG01148 from the vcf.gz files. In the script # Extract columns from the VCF, considering header lines and the 400th sample
+    zcat $vcf_file | awk '{if(NR<=21 || $1 ~ /^#/) print; else print $1,$2,$3,$4,$5, $400}' > $extracted_columns ----in this line **change the "$400" to whatever column number** result you get from the **find_colno.sh**. Now execute this script- **1.extract_pos_IGSR.sh**
+
+```
+#!/bin/bash
+  
+# Loop through chromosomes 1-22
+for chr in {1..22}; do
+    # Define the VCF file name
+    vcf_file="HG01148_Colombian_chr${chr}.vcf.gz"
+    # Define intermediate and output file names
+    extracted_columns="extracted_columns_chr${chr}.txt"
+    filtered_output="filtered_output_chr${chr}.txt"
+    final_output="final_output_chr${chr}.txt"
+    header_file="header.txt"
+    output_file="HG01148_Colombian_IGSR_chr${chr}.txt"
+
+    # Extract columns from the VCF, considering header lines and the 400th sample
+    zcat $vcf_file | awk '{if(NR<=21 || $1 ~ /^#/) print; else print $1,$2,$3,$4,$5, $400}' > $extracted_columns
+
+    # Filter out VCF header lines
+    grep -v "#" $extracted_columns > $filtered_output
+
+    # Remove the first line (column names) from the filtered output
+    tail -n +2 $filtered_output > $final_output
+
+    # Create a new header file
+    echo -e "CHROM\tPOS\tID\tREF\tALT\tGenotype_HG01148" > $header_file
+
+    # Concatenate the new header with the final output
+    cat $header_file $final_output > $output_file
+
+    # Remove intermediate files
+    rm $filtered_output $final_output $extracted_columns
+
+    echo "Processed chromosome $chr."
+done
+
+echo "Processing complete for chromosomes 1-22."
+```
+3. Now this will create a table with all the columns info needed find out the coordinate. 
+
+| CHROM | POS   | ID | REF | ALT | Genotype_HG01148 |
+|-------|-------|----|-----|-----|------------------|
+| 1     | 16103 | .  | T   | G   | 0\|0             |
+| 1     | 17496 | .  | AC  | A   | 0\|0             |
+| 1     | 51479 | .  | T   | A   | 0\|0             |
+
+4. Now run script **2.coordinate_process.R** to form a 
+
+```
+#!/usr/bin/env Rscript
+  
+for (chr in 1:22) {
+  file_name <- paste("HG01148_Colombian_IGSR_chr", chr, ".txt", sep = "")
+  data <- read.table(file_name, header = TRUE, sep = "\t", stringsAsFactors = FALSE, fill = TRUE)
+
+  # Splitting and processing data as per your script
+  split_data <- strsplit(as.character(data$CHROM), " ")
+  data$CHROM <- sapply(split_data, function(x) x[1])
+  data$POS <- as.integer(sapply(split_data, function(x) x[2]))
+  data$REF <- sapply(split_data, function(x) x[4])
+  data$ALT <- sapply(split_data, function(x) x[5])
+  data$Genotype <- sapply(split_data, function(x) x[6])
+  data$ID <- NULL
+
+  data$coordinate = gsub(" ", "", paste("chr", data$CHROM, ":", data$POS, "_", data$REF, ">", data$ALT))
+  subset_df = subset(data, Genotype != "0|0")
+
+  new_data <- data.frame(coordinate = subset_df$coordinate)
+
+  # Generating a CSV file for each chromosome
+  output_file_name <- paste("HG01148_Colombian_IGSR_coordinate_chr", chr, ".csv", sep = "")
+  write.csv(new_data, output_file_name, row.names = FALSE)
+}
+```
+Now each chromosome file (.csv) will have this- 
+| Coordinate        |
+|-------------------|
+| chr1:54708_G>C    |
+| chr1:54716_C>T    |
+| chr1:54753_T>G    |
+
+### Process IGSR WGS data in Basepair
+
+Doenload the WGS files (fastq.gz) for the same genotype and run it in basepair with our variant callign pipeline. Then download them in baspepair -
+
+```
+wget -O file_name 
+"https://basepair.s3.amazonaws.com/analyses/5389/118672/snpeff/HG01148_ERR022469.GRCh38.fi[…]ae8e89318882a16c00c69f5ad607b3a1fe7d8504d62cb90005c0d77f"
+```
+**YOU NEED TO DOWNLOAD the vcf.gx and the INDEX file vcf.gz.tbi**
+1. First split the chromosomes with **bcftools**.
+
+```
+#!/bin/bash
+  
+# Define the input VCF file
+input_vcf="SRR360540_HG01953_LimaPeru.hg19.variants.vcf.gz"
+
+# Loop through chromosomes 1-22
+for chr in {1..22}; do
+    # Define the output file names
+    output_vcf="SRR360540_HG01953_LimaPeru.hg19.chr${chr}.variants.vcf.gz"
+    output_csv="chr${chr}_variants.csv"
+
+    # Extract chromosome-specific variants and save to a new VCF file
+    bcftools view -r chr${chr} $input_vcf -Oz -o $output_vcf
+
+    # Query the chromosome-specific VCF to extract desired fields and save to a CSV file
+    bcftools query -f '%CHROM,%POS,%REF,%ALT\n' $output_vcf > $output_csv
+done
+
+echo "Processing complete."
+```
+2. For each chromosomes now generate the coordinates.
+
+```
+#!/usr/bin/env Rscript
+  
+# Loop through chromosomes 1-22
+for (chr in 1:22) {
+  # Define input and output file names
+  input_file <- paste0("chr", chr, "_variants.csv")
+  output_file <- paste0("HG01953_LimaPeru_chr", chr, "_basepair_filtered.csv")
+
+  # Load data from the CSV file
+  data <- read.csv(input_file, sep = ",", header = FALSE)
+
+  # Assign column names
+  colnames(data) <- c("CHROM", "POS", "REF", "ALT")
+
+  # Create a new column 'coordinate' with a specific format
+  data$coordinate <- paste(data$CHROM, ":", data$POS, "_", data$REF, ">", data$ALT, sep = "")
+
+  # Create a new data frame with only the 'coordinate' column
+  new_data <- data.frame(coordinate = data$coordinate)
+
+  # Write the new data frame to a CSV file
+  write.csv(new_data, output_file, row.names = FALSE)
+}
+
+cat("Processing complete for chromosomes 1-22.\n")
+```
+Now each chromosome file (.csv) will have this- 
+| Coordinate        |
+|-------------------|
+| chr1:54708_G>C    |
+| chr1:54716_C>T    |
+| chr1:54753_T>G    |
+
+### Merging and statistics
+**Now take both the IGSR and basepair derived files to one single folder**-
+
+Run **3.merging_stats.R** script now.
+
+```
+#!/usr/bin/env Rscript
+
+# Define the base pattern of file names
+base_name <- "HG01953_LimaPeru_chr"
+
+# Create a vector of chromosome numbers
+chromosomes <- c(1:22) # Assuming you have chromosomes 1 through 22, X, and Y. Adjust if different.
+
+# Loop through each chromosome number and read the corresponding file
+for (chr in chromosomes) {
+  # Construct the file name
+  file_name <- paste0(base_name, chr, "_basepair_filtered.csv")
+
+  # Construct the variable name
+  var_name <- paste0("basepair_chr", chr)
+
+  # Read the CSV file and assign it to a dynamic variable name
+  assign(var_name, read.csv(file_name))
+}
+
+# Define the new base pattern of file names
+base_name <- "HG01953_limaperu_IGSR_coordinate_chr"
+
+# Create a vector of chromosome numbers
+chromosomes <- 1:22 # Assuming you have chromosomes 1 through 22. Adjust if different.
+
+# Loop through each chromosome number and read the corresponding file
+for (chr in chromosomes) {
+  # Construct the file name
+  file_name <- paste0(base_name, chr, ".csv")
+
+  # Construct the variable name
+  var_name <- paste0("IGSR_chr", chr)
+
+  # Read the CSV file and assign it to a dynamic variable name
+  assign(var_name, read.csv(file_name))
+}
+
+# Initialize a vector to store percentage overlap for each chromosome
+percent_overlaps <- numeric(22)
+
+# Loop through chromosomes 1 through 22
+for (chr in 1:22) {
+  # Merge data frames for the current chromosome
+  overlap <- merge(get(paste0("basepair_chr", chr)), get(paste0("IGSR_chr", chr)), by = "coordinate")
+
+  # Calculate the percentage overlap
+  percent_overlaps[chr] <- (nrow(overlap) / nrow(get(paste0("IGSR_chr", chr)))) * 100
+}
+
+# Create a data frame containing the percentage overlaps
+chromosomes <- 1:22
+overlap_data <- data.frame(chromosome = chromosomes, percent_overlap = percent_overlaps)
+
+# Write the data frame to a CSV file
+write.csv(overlap_data, "chromosome_overlap_percentage_IGSR.csv", row.names = FALSE)
+
+
+# Initialize vectors to store the number of rows for overlap and basepair data frames
+nrow_overlap <- numeric(22)
+nrow_basepair <- numeric(22)
+nrow_IGSR <- numeric(22)
+
+# Loop through chromosomes 1 through 22
+for (chr in 1:22) {
+  # Merge data frames for the current chromosome
+  overlap <- merge(get(paste0("basepair_chr", chr)), get(paste0("IGSR_chr", chr)), by = "coordinate")
+
+  # Calculate the percentage overlap
+  percent_overlaps[chr] <- (nrow(overlap) / nrow(get(paste0("basepair_chr", chr)))) * 100
+
+  # Store the number of rows in overlap and basepair data frames
+  nrow_overlap[chr] <- nrow(overlap)
+  nrow_basepair[chr] <- nrow(get(paste0("basepair_chr", chr)))
+  nrow_IGSR[chr] <- nrow(get(paste0("IGSR_chr", chr)))
+}
+
+# Create a data frame containing the chromosome numbers, percentage overlaps, and number of rows
+chromosomes <- 1:22
+overlap_data <- data.frame(chromosome = chromosomes,
+                           percent_overlap = percent_overlaps,
+                           nrow_overlap = nrow_overlap,
+                           nrow_basepair = nrow_basepair,
+                           nrow_IGSR = nrow_IGSR)
+
+# Write the data frame to a CSV file
+write.csv(overlap_data, "chromosome_overlap_details_HG01953_limaperu.csv", row.names = FALSE)
+```
+this will generate the dataset like this-
+
+| chromosome | percent_overlap | nrow_overlap | nrow_basepair | nrow_IGSR |
+|------------|-----------------|--------------|---------------|-----------|
+| 1          | 80.589          | 200,820      | 249,189       | 299,986   |
+| 2          | 81.805          | 227,763      | 278,423       | 335,755   |
+| 3          | 82.250          | 187,751      | 228,270       | 276,693   |
+| 4          | 83.485          | 204,397      | 244,831       | 298,252   |
+| 5          | 82.624          | 159,653      | 193,229       | 222,950   |
+| 6          | 81.976          | 168,722      | 205,818       | 245,617   |
+| 7          | 80.167          | 149,816      | 186,881       | 228,924   |
+| 8          | 83.808          | 148,678      | 177,404       | 224,516   |
+| 9          | 77.245          | 106,268      | 137,573       | 150,113   |
+| 10         | 80.860          | 137,352      | 169,865       | 209,131   |
+
+![image](columnbian_combined.png)
+
+
+-----
