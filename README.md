@@ -126,19 +126,31 @@ root@ip-10-180-11-166:/data/home/aayudh-das/sop_test/results/variants#
 
 snpEff: A tool used for annotating variants in VCF files and predicting their effects on genes (e.g., nonsynonymous coding changes, synonymous changes). It uses a database of genomic information to interpret the variants found in a VCF file based on the reference genome specified.
 
+Download databases- 
+
+**1. dbSNP** - ftp://ftp.ncbi.nlm.nih.gov/snp/organisms/human_9606_b150_GRCh37p13/VCF/GATK/common_all_20170710.vcf.gz
+
+**2. gnomad_exomes**- https://hgdownload.soe.ucsc.edu/gbdb/hg19/gnomAD/vcf/
+
+**YOU NEED TO INDEX EVERY DATABASE FILE**
+
 ```
+tabix gnomad.genomes.r2.0.2.sites.w_AF.vcf.gz
+```
+
+#### SnpSift 
+
+```
+#!/bin/bash
 # snpSift step run on both Strelka2 SNV and INDEL output VCFs ###################
-bgzip -dc <vcf input> |
-java -Xmx8g -jar SnpSift.jar annotate
--name dbsnp_
-<dbSNP database> - |
-java -Xmx8g -jar SnpSift.jar annotate
--name gnomad_genomes_
-<gnomad genomes database> - |
-java -Xmx8g -jar SnpSift.jar annotate
--name gnomad_exomes_
-<gnomad exomes database - |
-bgzip -c
+  
+bgzip -dc GEB_0015_43A_vs_ICB0004_02CP11_SNPs.vcf.gz |
+        java -Xmx8g -jar /data/home/aayudh-das/snpEff/SnpSift.jar annotate -name dbsnp_ dbSNP.vcf.gz - |
+        java -Xmx8g -jar /data/home/aayudh-das/snpEff/SnpSift.jar annotate -name gnomad_exomes_ gnomad.exomes.r2.0.2.sites.vcf.gz - |
+        java -Xmx8g -jar /data/home/aayudh-das/snpEff/SnpSift.jar annotate -name gnomad_genomes_ gnomad.genomes.r2.0.2.sites.w_AF.vcf.gz - |
+        bgzip -c > testdbsnp_gnomadExomes.vcf.gz
+```
+
 
 # snpEff step run on both Strelka2 SNV and INDEL outputs ##########################
 snpEff <genome> <vcf input>
