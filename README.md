@@ -122,7 +122,7 @@ drwxr-xr-x 4 root root     4096 Mar  5 18:51 ../
 root@ip-10-180-11-166:/data/home/aayudh-das/sop_test/results/variants#
 ```
 
-### E) snpEff
+### E) SnpSift & snpEff
 
 snpEff: A tool used for annotating variants in VCF files and predicting their effects on genes (e.g., nonsynonymous coding changes, synonymous changes). It uses a database of genomic information to interpret the variants found in a VCF file based on the reference genome specified.
 
@@ -151,12 +151,16 @@ bgzip -dc GEB_0015_43A_vs_ICB0004_02CP11_SNPs.vcf.gz |
         bgzip -c > testdbsnp_gnomadExomes.vcf.gz
 ```
 
+**snpEff step run after SnpSift**
+
 ```
+#!/bin/bash
+
 # snpEff step run on both Strelka2 SNV and INDEL outputs ##########################
-snpEff <genome> <vcf input>
+  
+        java -Xmx8g -jar /data/home/aayudh-das/snpEff/snpEff.jar hg19 testdbsnp_gnomadExomes_genomes_SNPs.vcf.gz |
+        bgzip -c > testdbsnp_gnomadExomes_genomes_snpEff_SNPs.vcf.gz
 ```
-
-
 ### Visualization
 
 **Run wgs_script.py** to visualize various variants.
