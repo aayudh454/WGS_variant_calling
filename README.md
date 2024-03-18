@@ -132,35 +132,36 @@ Download databases-
 
 **2. gnomad_exomes**- https://hgdownload.soe.ucsc.edu/gbdb/hg19/gnomAD/vcf/
 
+other libraries are - **3. gnomad_genomes** , **4. esp6500**, **5. clinvar**, **6. cosmic91**
+
 **YOU NEED TO INDEX EVERY DATABASE FILE**
 
 ```
 tabix gnomad.genomes.r2.0.2.sites.w_AF.vcf.gz
 ```
 
-#### SnpSift 
+#### SnpSift & snpEff
 
 ```
 #!/bin/bash
+
 # snpSift step run on both Strelka2 SNV and INDEL output VCFs ###################
-  
+ # snpEff step run on both Strelka2 SNV and INDEL outputs ##########################
 bgzip -dc GEB_0015_43A_vs_ICB0004_02CP11_SNPs.vcf.gz |
         java -Xmx8g -jar /data/home/aayudh-das/snpEff/SnpSift.jar annotate -name dbsnp_ dbSNP.vcf.gz - |
         java -Xmx8g -jar /data/home/aayudh-das/snpEff/SnpSift.jar annotate -name gnomad_exomes_ gnomad.exomes.r2.0.2.sites.vcf.gz - |
         java -Xmx8g -jar /data/home/aayudh-das/snpEff/SnpSift.jar annotate -name gnomad_genomes_ gnomad.genomes.r2.0.2.sites.w_AF.vcf.gz - |
-        bgzip -c > testdbsnp_gnomadExomes.vcf.gz
+        java -Xmx8g -jar /data/home/aayudh-das/snpEff/SnpSift.jar annotate -name esp6500_ ESP6500SI-V2-SSA137.GRCh38-liftover.snps_indels_fix.vcf.gz - |
+        java -Xmx8g -jar /data/home/aayudh-das/snpEff/SnpSift.jar annotate -name clinVar_ clinvar_20230604.vcf.gz - |
+        java -Xmx8g -jar /data/home/aayudh-das/snpEff/SnpSift.jar annotate -name COSMIC_ cosmic91_hg19.vcf.gz - |
+        bgzip -c > GEB_0015_43A_SNPs.vcf.gz
+        java -Xmx8g -jar /data/home/aayudh-das/snpEff/snpEff.jar hg19 GEB_0015_43A_SNPs.vcf.gz |
+        bgzip -c > GEB_0015_43A_snpEff_SNPs.vcf.gz
+
+rm GEB_0015_43A_SNPs.vcf.gz
+
 ```
 
-**snpEff step run after SnpSift**
-
-```
-#!/bin/bash
-
-# snpEff step run on both Strelka2 SNV and INDEL outputs ##########################
-  
-        java -Xmx8g -jar /data/home/aayudh-das/snpEff/snpEff.jar hg19 testdbsnp_gnomadExomes_genomes_SNPs.vcf.gz |
-        bgzip -c > testdbsnp_gnomadExomes_genomes_snpEff_SNPs.vcf.gz
-```
 ### Visualization
 
 **Run wgs_script.py** to visualize various variants.
