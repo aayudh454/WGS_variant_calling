@@ -1,6 +1,6 @@
 # WGS_variant_calling
 
-* [Page 1: 2023-30-11](#id-section1). Chapter 1: WGS variant calling pipeline (Fastp, bwa & strelka2)
+* [Page 1: 2023-30-11](#id-section1). Chapter 1: WGS variant calling pipeline (oncogenic variant detection)
 
 * [Page 2: 2024-15-01](#id-section2). Chapter 2: WGS variant calling qualification
 
